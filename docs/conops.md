@@ -48,17 +48,25 @@ The satellite is always in exactly one mode.
 
 | Mode | Purpose | Enters when | Leaves when |
 | --- | --- | --- | --- |
-| Launch / deployed | Minimal power on the launch vehicle; boot after separation | Power-on | → Detumble, 90–120 s after separation is detected |
+| Launch / deployed | Minimal power on the launch vehicle; boot after separation | Power-on | → Detumble, 90–120 s after separation is detected. → Safe, on low battery after separation |
 | Detumble | Slow the random spin after separation using magnetorquers | After Launch, on timer | → Commissioning, once body rate stays < 0.5°/s for 5 min. → Safe, on low battery |
 | Commissioning | Check out each subsystem with the ground | Detumble complete (then waits for first pass) | → Nominal, on authenticated ground sign-off only. → Safe, on a failed check or fault |
 | Nominal | Serve users, route traffic, keep orbit | Ground sign-off from Commissioning or Safe | → Safe, on a fault it can't fix itself. → Collision Avoidance, on a threat. → Deorbit, on ground command only |
 | Collision Avoidance | Pause normal work to point and fire thrusters | Collision probability above the entry threshold (ground-configurable) | → Nominal, when the recomputed probability is below the exit threshold or closest approach has passed. → Safe, on a fault mid-burn |
 | Safe | Panels to sun, nonessentials off, wait for ground | Battery < 40%, no ground contact for 24 h, repeated computer resets, or an unrecoverable fault | → Nominal, on authenticated ground command only (even if the fault clears) |
-| Deorbit | End of life: lower the orbit until re-entry | Two-step authenticated Arm, then Execute | None (one-way). Fault handling during the deorbit burn is an open question |
+| Deorbit | End of life: lower the orbit until re-entry | Two-step authenticated Arm, then Execute | None (one-way). On a propulsion, attitude or power fault, pauses the burn inside Deorbit, reports its new orbit, and resumes only on ground command |
 
 ### Autonomy rule
 
 The satellite may move itself **toward safety** (into Safe or Collision Avoidance) on its own. Moves **toward risk or permanence** (out of Safe, into Nominal, into Deorbit) require an authenticated ground command.
+
+### Faults during deorbit
+
+A burn that stops halfway leaves the satellite in a lower, oval orbit that crosses altitudes where other spacecraft fly (the ISS is around 420 km), and tracking predictions no longer match it. Deorbit has no way back to Nominal, so it has its own paused state:
+1. Stop the burn and hold a stable attitude.
+2. Report actual position, velocity and predicted orbit on the next available link, so the ground can share it with space-tracking organizations.
+3. Keep collision avoidance active if the thrusters still work.
+4. Resume only on ground command. If propulsion is dead, drag completes the deorbit, faster now from the lower orbit.
 
 ### Arm / execute
 
@@ -66,6 +74,5 @@ Irreversible actions use two steps. **Arm** puts the satellite in a ready state 
 
 ## 4. Open questions
 
-- What should happen if a fault occurs during the deorbit burn?
 - Exact collision probability thresholds (entry ~1 in 10,000, exit ~1 in 100,000 as starting values).
 - Telemetry priority levels for event reports carried over ISLs versus customer traffic.

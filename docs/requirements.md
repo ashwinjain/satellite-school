@@ -13,7 +13,7 @@
 
 | ID | Requirement | Verify |
 | --- | --- | --- |
-| MODE-001 | The flight software shall enter Safe mode within 1 second of battery state of charge falling below 40%. | T |
+| MODE-001 | In any mode after separation from the launch vehicle, except Deorbit, the flight software shall enter Safe mode within 1 second of battery state of charge falling below 40%. | T |
 | MODE-002 | The flight software shall enter Safe mode within 1 second after the third unplanned reset within any 5-minute window. | T |
 | MODE-003 | The flight software shall leave Safe mode only on an authenticated ground command. | T |
 | MODE-004 | The flight software shall enter Detumble mode between 90 and 120 seconds after separation from the launch vehicle is detected. | T |
@@ -27,12 +27,15 @@
 | MODE-012 | The flight software shall report "deorbit execute received" in telemetry within 1 second of receiving an authenticated Execute Deorbit command. | T |
 | MODE-013 | The flight software shall enter Deorbit mode within 1 second of receiving an authenticated Execute Deorbit command while deorbit is armed. | T |
 | MODE-014 | The flight software shall reject an Execute Deorbit command received while deorbit is not armed, and report "execute rejected: not armed" in telemetry. | T |
+| MODE-015 | The flight software shall pause the deorbit burn within 1 second of detecting a propulsion, attitude control, or power fault while in Deorbit mode. | T |
+| MODE-016 | After pausing the deorbit burn, the flight software shall include its current position, velocity, and predicted orbit in telemetry sent on the next available link (direct or inter-satellite). | T |
+| MODE-017 | The flight software shall resume a paused deorbit burn only on an authenticated ground command. | T |
 
 ### Still to write
 
 - COMM-001: reject any command that fails authentication (applies to every command, so it belongs in the comms section).
-- Detumble → Safe on low battery, and Commissioning → Safe on a failed check.
-- Set-level check: confirm every mode can reach Safe, and decide what happens on a fault during the deorbit burn.
+- Commissioning → Safe on a failed subsystem check.
+- Collision Avoidance → Safe on a fault mid-burn.
 
 ## How these were written: mistakes and what I learned
 
@@ -51,8 +54,12 @@ This was my first set of requirements. Each one was drafted, reviewed and rewrit
 | Wrong verification method | Demonstration for a measurable pass/fail outcome | Measurable outcome means Test. Demonstration is for things a person judges. |
 | Blocking my own safety rule | "shall not exit Commissioning until ground sign-off" (which also blocked going to Safe) | Name the specific transition. Review requirements as a set, not one at a time: two can each look fine and still contradict. |
 | Checking history instead of state | "execute only if an arm command was received in the last 10 minutes" (still fires after a Disarm) | Check the current state ("while armed"), which other requirements define. |
+| Missing a mode in the set-level check | Found that Deorbit can't reach Safe, but missed Launch | Walk every row of the modes table. Gaps hide in the modes you think of least. |
+| Writing a new requirement for an existing rule | Drafted "enter Safe within 1 s of separation if battery < 40%" | MODE-001 already covered low battery; its scope just needed to say which modes it applies to. Check existing requirements before adding new ones. |
+| Vague trigger ("a fault") | "stop all Deorbit activities within 1 second of discovering a fault" | Name the fault classes (propulsion, attitude control, power). |
+| Forgetting a lesson from the concept of operations | "report... to ground within 1 second of establishing contact" | The design already says to use any available link, including inter-satellite links. |
 | Forgetting the rejection path | No requirement for an Execute that arrives while not armed | Write requirements for what gets rejected, not just what succeeds. |
 | Repeating a general rule | "only arm once an authenticated command is received" | Rules that apply to every command (authentication) belong in one general requirement. |
 | Mixing up directions | "after sending a 'deorbit execute received' command" | Commands go up from the ground; telemetry comes down from the satellite. |
 
-Recurring patterns to watch: writing "should," bundling behaviors with "and," and gate-only wording.
+Recurring patterns to watch: writing "should" (still happening in later drafts), bundling behaviors with "and," and gate-only wording.
