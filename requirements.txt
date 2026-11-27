@@ -1,1 +1,2 @@
 skyfield>=1.49
+skyfield-data  # offline copy of de421.bsp for eclipse calculations

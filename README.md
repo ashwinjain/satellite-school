@@ -6,6 +6,7 @@ A hardware-in-the-loop testbed for a scaled-down, Starlink-inspired LEO broadban
 
 - [Concept of operations](docs/conops.md)
 - [Software requirements](docs/requirements.md)
+- [Skyfield guide](docs/skyfield-guide.md)
 
 ## Running the world sim
 
