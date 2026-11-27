@@ -1,12 +1,12 @@
 # Concept of Operations
 
-**Status:** draft v0.1 (2026-11-26)
+**Status:** draft v0.2 (2026-11-27)
 
 ## 1. Mission
 
-A scaled-down LEO broadband constellation testbed, inspired by public descriptions of Starlink. Three satellites fly in a ~550 km orbit shell, with two ground gateways and laser inter-satellite links (ISLs). Each satellite serves user terminals on the ground. It routes their traffic to a gateway directly, or through neighboring satellites when no gateway is in view.
+A scaled-down LEO broadband constellation testbed, inspired by public descriptions of Starlink. Three satellites fly one behind another in a single ~550 km orbital plane, linked by laser inter-satellite links (ISLs), with a network of ground gateways around the world and a separate mission control. Each satellite serves user terminals on the ground. It routes their traffic to a gateway directly, or through neighboring satellites when no gateway is in view.
 
-In the lab, a laptop runs the world simulator and ground station. One "hero" satellite is a Raspberry Pi 3 flight computer plus an STM32 attitude controller with real sensors and a reaction wheel. Two "lite" satellites are Raspberry Pi Zero 2 W boards running the same flight software, with simulated attitude control.
+In the lab, a laptop runs the world simulator and link emulator. Mission control and the gateways start on the laptop and move to cloud servers in Phase 3 (see section 4). One "hero" satellite is a Raspberry Pi 3 flight computer plus an STM32 attitude controller with real sensors and a reaction wheel. Two "lite" satellites are Raspberry Pi Zero 2 W boards running the same flight software, with simulated attitude control. Until Phase 8 they run as programs on the laptop.
 
 ### Why 550 km
 
@@ -72,7 +72,45 @@ A burn that stops halfway leaves the satellite in a lower, oval orbit that cross
 
 Irreversible actions use two steps. **Arm** puts the satellite in a ready state and starts a 10-minute timer. **Execute** is accepted only while armed. The satellite disarms on its own when the timer expires, and the ground can send Disarm at any time. One corrupted packet or operator slip can't trigger the action.
 
-## 4. Open questions
+## 4. Architecture
+
+Work in progress. The arrow list is being filled in one interface at a time.
+
+### Components
+
+| Component | Role | Runs on |
+| --- | --- | --- |
+| World sim | The "universe": orbits, sun and eclipse, gateway visibility, simulated sensors and actuators | Laptop (home) |
+| Link emulator | The "air": carries every ground radio link and decides whether each packet is delivered | Laptop (home) |
+| Mission control | Operators: predicts passes, schedules commands, receives telemetry | Laptop, then a cloud server from Phase 3 |
+| Gateways | Ground antennas at a configurable list of locations (for example Texas, Washington, Frankfurt, Sydney) | Laptop, then cloud servers in 2–3 regions from Phase 3, plus one local gateway for precise timing tests |
+| Hero satellite | Pi 3 flight computer; STM32 attitude controller with real sensors and reaction wheel added in Phases 5–9 | Desk (home) |
+| Lite satellites 1, 2 | Same flight software, simulated attitude control | Laptop programs, then Pi Zero 2 W from Phase 8 |
+
+### Interfaces so far
+
+Solid = exists on a real mission. Dashed (sim only) = exists only because the environment is simulated.
+
+| # | From → To | What | Rate | Over | Type |
+| --- | --- | --- | --- | --- | --- |
+| 1 | World sim → hero satellite | Position, sun direction, simulated sensor values for anything not yet real | 1 Hz | UDP, local network | Sim only |
+| 2 | World sim → lite satellites | Position, sun direction, simulated gyro rates and magnetometer readings | 10 Hz | UDP, local | Sim only |
+| 2b | Lite satellites → world sim | Actuator commands (wheel speeds, magnetorquer currents); closes the simulation loop | 10 Hz | UDP, local | Sim only |
+| 3 | World sim → link emulator | Visibility table: gateway, satellite, up/down, elevation | 1 Hz | UDP, local | Sim only |
+| 4 | Mission control → gateway → link emulator → satellite | *To do* | | | Flight |
+| 5 | Satellite → link emulator → gateway → mission control | *To do* | | | Flight |
+| 6 | Satellite ↔ satellite (ISL) | *To do* | | | Flight |
+| 7 | Hero Pi 3 ↔ STM32 | *To do* | | | Flight |
+
+### Design decisions
+
+- **Truth versus knowledge.** The world sim and link emulator hold the truth. Mission control and flight software only hold knowledge: what telemetry and predictions tell them. Mission control predicts passes from the orbit the satellite reports and never reads the world sim, so its predictions can be wrong, as a real operator's can (stale orbit, unreported burn, broken antenna, clock drift). Those mismatches are part of what gets tested.
+- **Hardware abstraction.** Flight software reads sensors and drives actuators through one interface, with a real driver or a simulator behind it, and can't tell which.
+- **All ground radio traffic goes through the link emulator.** Gateways never reach satellites directly. For each packet, the emulator checks that the gateway can see the satellite right now, applies realistic loss, and enforces the link's data rate. Otherwise the internet would let any gateway reach any satellite at any time.
+- **Inter-satellite links are always up.** All three satellites share one orbital plane, so neighbors stay at nearly fixed spacing. Linux `tc netem` adds delay and loss, and a "cut link" command breaks a link on purpose to test rerouting.
+- **What runs where.** Things connected by the internet in reality (mission control and gateways) are distributed for real, through an encrypted WireGuard or Tailscale tunnel to home. Things connected by radio or laser (gateways to satellites, satellites to each other) are emulated at home.
+
+## 5. Open questions
 
 - Exact collision probability thresholds (entry ~1 in 10,000, exit ~1 in 100,000 as starting values).
 - Telemetry priority levels for event reports carried over ISLs versus customer traffic.
