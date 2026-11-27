@@ -13,4 +13,5 @@ A hardware-in-the-loop testbed for a scaled-down, Starlink-inspired LEO broadban
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m world_sim.demo_orbits
+python -m world_sim.demo_passes
 ```
