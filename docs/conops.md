@@ -74,7 +74,42 @@ Irreversible actions use two steps. **Arm** puts the satellite in a ready state 
 
 ## 4. Architecture
 
-Work in progress. The arrow list is being filled in one interface at a time.
+Solid arrows exist on a real mission. Dotted arrows exist only because the environment is simulated.
+
+```mermaid
+flowchart TB
+  subgraph cloud["Cloud (from Phase 3)"]
+    MC["Mission control"]
+    GW["Gateways<br/>Frankfurt · Virginia · Sydney"]
+  end
+  subgraph home["Home network"]
+    WS["World sim<br/>(the universe)"]
+    LE["Link emulator<br/>(the air)"]
+    subgraph hero["Hero satellite"]
+      PI["Pi 3<br/>flight computer"]
+      STM["STM32<br/>attitude control"]
+    end
+    L1["Lite satellite 1"]
+    L2["Lite satellite 2"]
+  end
+  NET(("Internet<br/>(user traffic)"))
+
+  MC <-->|"4 commands up · 5 telemetry down<br/>encrypted tunnel"| GW
+  GW <-->|"4 / 5"| LE
+  GW -->|"user traffic"| NET
+  LE <-->|"4 / 5, only during a pass"| PI
+  LE <-->|"4 / 5"| L1
+  LE <-->|"4 / 5"| L2
+  PI <-->|"6 laser link"| L1
+  L1 <-->|"6 laser link"| L2
+  PI <-->|"7 UART, then CAN"| STM
+  WS -.->|"3 visibility table"| LE
+  WS -.->|"1 position, sun, sim sensors"| PI
+  WS -.->|"2 sim sensors"| L1
+  WS -.->|"2 sim sensors"| L2
+  L1 -.->|"2b actuator commands"| WS
+  L2 -.->|"2b actuator commands"| WS
+```
 
 ### Components
 
@@ -87,7 +122,7 @@ Work in progress. The arrow list is being filled in one interface at a time.
 | Hero satellite | Pi 3 flight computer; STM32 attitude controller with real sensors and reaction wheel added in Phases 5–9 | Desk (home) |
 | Lite satellites 1, 2 | Same flight software, simulated attitude control | Laptop programs, then Pi Zero 2 W from Phase 8 |
 
-### Interfaces so far
+### Interfaces
 
 Solid = exists on a real mission. Dashed (sim only) = exists only because the environment is simulated.
 
@@ -97,14 +132,16 @@ Solid = exists on a real mission. Dashed (sim only) = exists only because the en
 | 2 | World sim → lite satellites | Position, sun direction, simulated gyro rates and magnetometer readings | 10 Hz | UDP, local | Sim only |
 | 2b | Lite satellites → world sim | Actuator commands (wheel speeds, magnetorquer currents); closes the simulation loop | 10 Hz | UDP, local | Sim only |
 | 3 | World sim → link emulator | Visibility table: gateway, satellite, up/down, elevation | 1 Hz | UDP, local | Sim only |
-| 4 | Mission control → gateway → link emulator → satellite | *To do* | | | Flight |
-| 5 | Satellite → link emulator → gateway → mission control | *To do* | | | Flight |
-| 6 | Satellite ↔ satellite (ISL) | *To do* | | | Flight |
-| 7 | Hero Pi 3 ↔ STM32 | *To do* | | | Flight |
+| 4 | Mission control → gateway → link emulator → satellite | Stored schedules, contact plans, conjunction warnings, maneuver commands, immediate commands (mode changes, arm/execute deorbit, cut link, settings), acknowledgments of received telemetry, time corrections, software updates | Bursts during passes | CCSDS telecommands over UDP, encrypted and authenticated | Flight |
+| 5 | Satellite → link emulator → gateway → mission control | Telemetry, sent in this priority order: events (e.g. entered Safe mode), command reports (accepted / executed / rejected), live health, stored health since last pass, orbit reports, acknowledgments, files. User traffic leaves at the gateway for the internet and never reaches mission control | Live health 1 Hz during passes; stored data in a burst | CCSDS telemetry over UDP, encrypted | Flight |
+| 6 | Satellite ↔ satellite (ISL) | User traffic, relayed telemetry and commands, position for laser pointing, heartbeats, time sync | Heartbeat and position ~1 Hz; traffic continuous | UDP with tc netem delay; always up unless cut | Flight |
+| 7a | Hero Pi 3 → STM32 | Attitude mode (detumble, sun-point, target-point), target direction, sun direction from the sim (no real sun sensor yet), settings, heartbeat | On change, heartbeat 1 Hz | UART (Phase 5), then CAN (Phase 8) | Flight |
+| 7b | STM32 → hero Pi 3 | Attitude estimate, rotation rates, wheel speed and current, faults, heartbeat | 10 Hz | UART, then CAN | Flight |
 
 ### Design decisions
 
 - **Truth versus knowledge.** The world sim and link emulator hold the truth. Mission control and flight software only hold knowledge: what telemetry and predictions tell them. Mission control predicts passes from the orbit the satellite reports and never reads the world sim, so its predictions can be wrong, as a real operator's can (stale orbit, unreported burn, broken antenna, clock drift). Those mismatches are part of what gets tested.
+- **The STM32 runs the attitude control loop itself** (50–100 Hz on FreeRTOS). The Pi only sets the goal and reads reports. That keeps loop timing steady, keeps the Pi-to-STM32 link light, and keeps the satellite stable if the Pi crashes.
 - **Hardware abstraction.** Flight software reads sensors and drives actuators through one interface, with a real driver or a simulator behind it, and can't tell which.
 - **All ground radio traffic goes through the link emulator.** Gateways never reach satellites directly. For each packet, the emulator checks that the gateway can see the satellite right now, applies realistic loss, and enforces the link's data rate. Otherwise the internet would let any gateway reach any satellite at any time.
 - **Inter-satellite links are always up.** All three satellites share one orbital plane, so neighbors stay at nearly fixed spacing. Linux `tc netem` adds delay and loss, and a "cut link" command breaks a link on purpose to test rerouting.
