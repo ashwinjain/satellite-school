@@ -27,16 +27,18 @@ from dataclasses import dataclass
 from math import pi, radians, sqrt
 
 from sgp4.api import WGS72, Satrec
-from skyfield.api import EarthSatellite, load
+from skyfield.api import EarthSatellite
+
+from world_sim.timebase import from_gps_seconds, to_gps_seconds, ts
 
 MU_EARTH_KM3_S2 = 398600.4418  # Earth's gravitational parameter
 R_EARTH_KM = 6378.137          # Earth's equatorial radius (WGS84)
 
-ts = load.timescale()
-
 # The moment our orbit definitions are "true". SGP4 propagates forward
-# (and backward) from here.
-EPOCH = ts.utc(2027, 1, 1, 0, 0, 0)
+# (and backward) from here. Defined in GPS time like everything else; it is
+# 2027-01-01 00:00:00 UTC, rounded to a whole GPS second.
+EPOCH_GPS_S = round(to_gps_seconds(ts.utc(2027, 1, 1)))
+EPOCH = from_gps_seconds(EPOCH_GPS_S)
 
 
 @dataclass(frozen=True)

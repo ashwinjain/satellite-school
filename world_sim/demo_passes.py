@@ -6,7 +6,8 @@ Run from the repo root:
 
 import numpy as np
 
-from world_sim.constellation import EPOCH, build_constellation, ts
+from world_sim.constellation import EPOCH, EPOCH_GPS_S, build_constellation
+from world_sim.timebase import from_gps_seconds
 from world_sim.gateways import GATEWAYS, MIN_ELEVATION_DEG
 from world_sim.visibility import find_passes, longest_gap_min
 
@@ -16,12 +17,12 @@ STEP_S = 30
 
 def main() -> None:
     sats = build_constellation()
-    seconds = np.arange(0, HOURS * 3600 + 1, STEP_S)
-    y, mo, d, h, mi, s = EPOCH.utc
-    times = ts.utc(y, mo, d, h, mi, s + seconds)
+    # The sim clock runs in GPS seconds; Skyfield gets a converted copy.
+    gps_s = EPOCH_GPS_S + np.arange(0, HOURS * 3600 + 1, STEP_S)
+    times = from_gps_seconds(gps_s)
 
     print(f"Passes above {MIN_ELEVATION_DEG:.0f} deg elevation, {HOURS} h from "
-          f"{EPOCH.utc_strftime('%Y-%m-%d %H:%M')} UTC\n")
+          f"GPS second {EPOCH_GPS_S} ({EPOCH.utc_strftime('%Y-%m-%d %H:%M')} UTC)\n")
 
     summary = []
     for gw in GATEWAYS:

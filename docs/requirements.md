@@ -31,6 +31,15 @@
 | MODE-016 | After pausing the deorbit burn, the flight software shall include its current position, velocity, and predicted orbit in telemetry sent on the next available link (direct or inter-satellite). | T |
 | MODE-017 | The flight software shall resume a paused deorbit burn only on an authenticated ground command. | T |
 
+## Time (TIME)
+
+| ID | Requirement | Verify |
+| --- | --- | --- |
+| TIME-001 | The flight software shall keep onboard time as GPS time: seconds since 1980-01-06 00:00:00, with no leap seconds. | I |
+| TIME-002 | The flight software shall timestamp every telemetry packet with a CCSDS CUC time code (4 bytes of whole seconds, 2 bytes of fractional seconds) using the GPS epoch. | T |
+| TIME-003 | The flight software shall apply an authenticated time correction command within 1 second of receipt and report the applied offset in telemetry. | T |
+| TIME-004 | Mission control shall display times to operators in UTC, converted from the GPS time in telemetry. | D |
+
 ### Still to write
 
 - COMM-001: reject any command that fails authentication (applies to every command, so it belongs in the comms section).
