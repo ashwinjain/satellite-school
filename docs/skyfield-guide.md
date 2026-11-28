@@ -56,11 +56,11 @@ print(g.position.km, g.velocity.km_per_s)
 ```
 
 ```
-position km   [6905.4  -364.4  -446.7]   |r| = 6929.5 km
-velocity km/s [0.625   4.547   6.041]    speed = 7.587 km/s
+position km   [6928.8   -49.0   -27.9]   |r| = 6929.0 km
+velocity km/s [0.050   4.564   6.061]    speed = 7.588 km/s
 ```
 
-- |r| = 6,929.5 km is Earth's radius plus ~550 km. 7.59 km/s is orbital speed at that altitude.
+- |r| = 6,929.0 km is Earth's radius plus ~550 km. 7.59 km/s is orbital speed at that altitude.
 - With an array of times, `position.km` becomes a 3 × N array.
 - Used in: `demo_orbits.py` (positions for line of sight), `geometry.py` takes these vectors.
 
@@ -90,7 +90,7 @@ print(lat.degrees, lon.degrees, wgs84.height_of(g).km)
 ```
 
 ```
--3.57  -103.10  551.4
+-0.08  -100.48  550.9
 ```
 
 - This is the "altitude wobble" you explained: height is measured above the ellipsoid surface directly below, which is lower near the poles.
@@ -101,17 +101,17 @@ print(lat.degrees, lon.degrees, wgs84.height_of(g).km)
 Subtracting a place from a satellite gives the satellite **as seen from that place**. `altaz()` turns it into the three numbers an antenna needs.
 
 ```python
-alt, az, dist = (hero - frankfurt).at(ts.utc(2027, 1, 1, 0, 29, 30)).altaz()
+alt, az, dist = (hero - frankfurt).at(ts.utc(2027, 1, 1, 0, 28, 18)).altaz()
 print(alt.degrees, az.degrees, dist.km)
 ```
 
 ```
-89.2  185.1  555.9
+89.9  69.4  555.8
 ```
 
-- **Altitude (elevation):** degrees above the horizon. 89.2° means almost straight overhead. This is the number our 25° visibility rule checks.
-- **Azimuth:** compass direction (0° north, 90° east, 185° roughly south). An antenna would point here.
-- **Distance:** 555.9 km, almost exactly the orbit altitude, because it's overhead. Light-travel delay = distance ÷ speed of light ≈ 1.9 ms.
+- **Altitude (elevation):** degrees above the horizon. 89.9° means almost straight overhead. This is the number our 25° visibility rule checks.
+- **Azimuth:** compass direction (0° north, 90° east, 180° south). An antenna would point here. Right overhead, azimuth swings quickly, so 69.4° here just means "crossing from the west-southwest side to the east-northeast".
+- **Distance:** 555.8 km, almost exactly the orbit altitude, because it's overhead. Light-travel delay = distance ÷ speed of light ≈ 1.9 ms.
 - Used in: `visibility.py` (`elevation_deg`). This is the core of pass prediction.
 
 ## 7. Pass finder: `sat.find_events(place, t0, t1, altitude_degrees=...)`
@@ -125,16 +125,16 @@ for t, e in zip(times, events):
 ```
 
 ```
-00:27:08 rise
-00:29:30 culminate
-00:31:51 set
-02:08:07 rise
-02:08:44 culminate
-02:09:21 set
+00:25:56 rise
+00:28:18 culminate
+00:30:39 set
+02:06:48 rise
+02:07:32 culminate
+02:08:16 set
 ```
 
 - It's more precise than our 30-second grid, because it searches for the exact crossing.
-- The second pass (02:08 to 02:09) barely clears 25°: the satellite skimmed the edge of Frankfurt's view.
+- The second pass (02:06:48 to 02:08:16) barely clears 25°: the satellite skimmed the edge of Frankfurt's view.
 - Used in: checking `visibility.find_passes()`; our loop agreed within one 30 s step. Our own loop stays because it also produces the per-step elevation the link emulator needs.
 
 ## 8. Sun and planets: `load('de421.bsp')`
@@ -159,10 +159,10 @@ print(hero.at(times).is_sunlit(eph).astype(int).tolist())
 ```
 
 ```
-[1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ```
 
-- 7 of 20 samples are dark: about 35 minutes of a 95-minute orbit, matching our estimate.
+- 6 of 20 samples are dark: roughly 30 to 35 minutes of a 95-minute orbit, matching our estimate.
 - Next up: step 4 turns this into eclipse start/end times and the longest eclipse, which sets battery size.
 
 ## 10. Real satellites: TLEs
@@ -192,8 +192,8 @@ print(g.frame_xyz(itrs).km)   # ITRS: fixed to the rotating Earth
 ```
 
 ```
-GCRS [ 6905.4  -364.4  -446.7]
-ITRS [-1567.1 -6736.3  -428.5]
+GCRS [ 6928.8   -49.0   -27.9]
+ITRS [-1260.6 -6813.4    -9.5]
 ```
 
 - Same point, same distance from Earth's center, different axes. Inertial frames are for physics (orbits, attitude); Earth-fixed frames are for anything tied to the ground (gateways, maps, Earth's magnetic field).
