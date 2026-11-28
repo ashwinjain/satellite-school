@@ -26,17 +26,19 @@ A circular orbit needs only four numbers:
 from dataclasses import dataclass
 from math import pi, radians, sqrt
 
-from sgp4.api import WGS72, Satrec
-from skyfield.api import EarthSatellite, load
+from sgp4.api import WGS72, Satrec, jday
+from skyfield.api import EarthSatellite
+
+from world_sim.timebase import from_gps_seconds, to_gps_seconds, ts
 
 MU_EARTH_KM3_S2 = 398600.4418  # Earth's gravitational parameter
 R_EARTH_KM = 6378.137          # Earth's equatorial radius (WGS84)
 
-ts = load.timescale()
-
 # The moment our orbit definitions are "true". SGP4 propagates forward
-# (and backward) from here.
-EPOCH = ts.utc(2027, 1, 1, 0, 0, 0)
+# (and backward) from here. Defined in GPS time like everything else; it is
+# 2027-01-01 00:00:00 UTC, rounded to a whole GPS second.
+EPOCH_GPS_S = round(to_gps_seconds(ts.utc(2027, 1, 1)))
+EPOCH = from_gps_seconds(EPOCH_GPS_S)
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,13 @@ def period_minutes(altitude_km: float) -> float:
     return 2 * pi / mean_motion_rad_per_min(altitude_km)
 
 
+# SGP4 (and Skyfield's reading of it) treats the epoch as UTC, so convert
+# our GPS-time epoch to a UTC Julian date. Passing TT here would put the
+# epoch 69 s late (37 leap seconds + 32.184 s TT offset).
+_jd, _fr = jday(*EPOCH.utc)
+EPOCH_SGP4_DAYS = _jd + _fr - 2433281.5
+
+
 def build_satellite(spec: OrbitSpec) -> EarthSatellite:
     """Turn an OrbitSpec into a Skyfield satellite object."""
     sat = Satrec()
@@ -79,7 +88,7 @@ def build_satellite(spec: OrbitSpec) -> EarthSatellite:
         WGS72,                      # gravity model SGP4 was designed with
         "i",                        # "improved" mode (the modern default)
         spec.satnum,
-        EPOCH.tt - 2433281.5,       # SGP4 counts days from 1949-12-31 00:00
+        EPOCH_SGP4_DAYS,            # epoch in UTC days since 1949-12-31 00:00
         0.0,                        # bstar: drag term. 0 = no drag for now
         0.0,                        # ndot (unused by SGP4)
         0.0,                        # nddot (unused by SGP4)

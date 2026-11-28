@@ -10,11 +10,11 @@ from skyfield.api import wgs84
 
 from world_sim.constellation import (
     CONSTELLATION,
-    EPOCH,
+    EPOCH_GPS_S,
     build_constellation,
     period_minutes,
-    ts,
 )
+from world_sim.timebase import from_gps_seconds
 from world_sim.geometry import grazing_altitude_km, has_line_of_sight
 
 STEP_MIN = 5
@@ -27,7 +27,7 @@ def main() -> None:
 
     # One time array covering one orbit; Skyfield computes all steps at once.
     minutes = range(0, int(period) + 1, STEP_MIN)
-    times = ts.utc(*EPOCH.utc[:4], [EPOCH.utc[4] + m for m in minutes])
+    times = from_gps_seconds([EPOCH_GPS_S + 60 * m for m in minutes])
 
     # Where each satellite is, as seen from Earth (latitude, longitude, altitude).
     header = "T+min " + "".join(f"| {name:^24} " for name in sats)
