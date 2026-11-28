@@ -26,7 +26,7 @@ A circular orbit needs only four numbers:
 from dataclasses import dataclass
 from math import pi, radians, sqrt
 
-from sgp4.api import WGS72, Satrec
+from sgp4.api import WGS72, Satrec, jday
 from skyfield.api import EarthSatellite
 
 from world_sim.timebase import from_gps_seconds, to_gps_seconds, ts
@@ -74,6 +74,13 @@ def period_minutes(altitude_km: float) -> float:
     return 2 * pi / mean_motion_rad_per_min(altitude_km)
 
 
+# SGP4 (and Skyfield's reading of it) treats the epoch as UTC, so convert
+# our GPS-time epoch to a UTC Julian date. Passing TT here would put the
+# epoch 69 s late (37 leap seconds + 32.184 s TT offset).
+_jd, _fr = jday(*EPOCH.utc)
+EPOCH_SGP4_DAYS = _jd + _fr - 2433281.5
+
+
 def build_satellite(spec: OrbitSpec) -> EarthSatellite:
     """Turn an OrbitSpec into a Skyfield satellite object."""
     sat = Satrec()
@@ -81,7 +88,7 @@ def build_satellite(spec: OrbitSpec) -> EarthSatellite:
         WGS72,                      # gravity model SGP4 was designed with
         "i",                        # "improved" mode (the modern default)
         spec.satnum,
-        EPOCH.tt - 2433281.5,       # SGP4 counts days from 1949-12-31 00:00
+        EPOCH_SGP4_DAYS,            # epoch in UTC days since 1949-12-31 00:00
         0.0,                        # bstar: drag term. 0 = no drag for now
         0.0,                        # ndot (unused by SGP4)
         0.0,                        # nddot (unused by SGP4)

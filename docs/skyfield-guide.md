@@ -40,11 +40,11 @@ print(hero)
 ```
 
 ```
-catalog #90001 epoch 2027-01-01 00:01:09 UTC
+catalog #90001 epoch 2027-01-01 00:00:00 UTC
 ```
 
 - Inside `build_satellite()`, `Satrec.sgp4init(...)` takes the raw elements (inclination, mean anomaly, mean motion, RAAN...) and `EarthSatellite.from_satrec(...)` wraps it for Skyfield.
-- The epoch shows 00:01:09 rather than 00:00:00: that's the 69-second difference between TT and UTC (leap seconds plus a fixed offset), because we passed `EPOCH.tt`. Harmless here; it's a good example of why the time objects exist.
+- SGP4 expects the epoch as a UTC date (days since 1949-12-31). An earlier version passed TT by mistake, which put the epoch at 00:01:09: TT runs 69 s ahead of UTC (37 leap seconds plus a fixed 32.184 s). `constellation.py` now converts the GPS-time epoch to UTC with `sgp4.api.jday`.
 
 ## 3. Position and velocity: `sat.at(t)`
 
